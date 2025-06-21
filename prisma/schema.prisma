@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  nickname     String?
+  initialNotes String?  @map("initial_notes")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  sessionPlayers SessionPlayer[]
+  handActions    HandAction[]
+  patterns       PlayerPattern[]
+
+  @@map("players")
+}
+
+model GameSession {
+  id              Int      @id @default(autoincrement())
+  date            DateTime @default(now())
+  location        String?
+  playerCount     Int      @map("player_count")
+  durationMinutes Int?     @map("duration_minutes")
+  myResult        Decimal  @map("my_result")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  players     SessionPlayer[]
+  handActions HandAction[]
+
+  @@map("game_sessions")
+}
+
+model SessionPlayer {
+  id          Int     @id @default(autoincrement())
+  sessionId   Int     @map("session_id")
+  playerId    Int     @map("player_id")
+  position    String?
+  finalResult Decimal @map("final_result")
+  mood        String? // 'neutral', 'tilted', 'confident'
+  notes       String?
+
+  // Relacionamentos
+  session GameSession @relation(fields: [sessionId], references: [id])
+  player  Player      @relation(fields: [playerId], references: [id])
+
+  @@map("session_players")
+}
+
+model HandAction {
+  id          Int      @id @default(autoincrement())
+  sessionId   Int      @map("session_id")
+  playerId    Int      @map("player_id")
+  handNumber  Int      @map("hand_number")
+  street      String // 'preflop', 'flop', 'turn', 'river'
+  position    String?
+  actionType  String   @map("action_type") // 'fold', 'call', 'raise', '3bet', 'all-in'
+  potSize     Decimal? @map("pot_size")
+  betSize     Decimal? @map("bet_size")
+  myHand      String?  @map("my_hand") // 'AKs', 'QQ', etc
+  board       String? // 'Ah7c2d', null se preflop
+  result      String? // 'won', 'lost', 'showed', 'mucked'
+  showedCards String?  @map("showed_cards")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  session GameSession @relation(fields: [sessionId], references: [id])
+  player  Player      @relation(fields: [playerId], references: [id])
+
+  @@map("hand_actions")
+}
+
+model PlayerPattern {
+  id              Int      @id @default(autoincrement())
+  playerId        Int      @map("player_id")
+  patternType     String   @map("pattern_type") // 'vpip', '3bet_freq', 'fold_to_3bet'
+  patternValue    Decimal  @map("pattern_value")
+  confidenceScore Int      @map("confidence_score") // 0-100
+  sampleSize      Int      @map("sample_size")
+  lastUpdated     DateTime @default(now()) @map("last_updated")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  // Relacionamentos
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@map("player_patterns")
+}
+
+model BankrollTracking {
+  id               Int      @id @default(autoincrement())
+  date             DateTime @default(now())
+  startingBankroll Decimal  @map("starting_bankroll")
+  buyIn            Decimal  @default(5.00) @map("buy_in")
+  rebuyAmount      Decimal  @default(0) @map("rebuy_amount")
+  prizeWon         Decimal  @default(0) @map("prize_won")
+  endingBankroll   Decimal  @map("ending_bankroll")
+  sessionId        Int?     @map("session_id")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("bankroll_tracking")
+}
