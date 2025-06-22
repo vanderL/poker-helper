@@ -21,10 +21,14 @@ interface Player {
 
 export default function Home() {
   const [selectedCards, setSelectedCards] = useState<Card[]>([])
+  const [boardCards, setBoardCards] = useState<Card[]>([])
   const [selectedPlayer, setSelectedPlayer] = useState<Player>()
   const [villainRange, setVillainRange] = useState('QQ+, AK')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [equity, setEquity] = useState<{ hero: number, villain: number } | null>(null)
+
+  // Todas as cartas usadas (hero + board)
+  const usedCards = [...selectedCards, ...boardCards]
 
   const handleCardSelect = (card: Card) => {
     if (selectedCards.length < 2) {
@@ -32,8 +36,23 @@ export default function Home() {
     }
   }
 
+  const handleBoardCardSelect = (card: Card) => {
+    if (boardCards.length < 5) {
+      setBoardCards([...boardCards, card])
+    }
+  }
+
   const clearCards = () => {
     setSelectedCards([])
+  }
+
+  const clearBoard = () => {
+    setBoardCards([])
+  }
+
+  const clearAllCards = () => {
+    setSelectedCards([])
+    setBoardCards([])
   }
 
   const handlePlayerSelect = (player: Player) => {
@@ -65,15 +84,29 @@ export default function Home() {
     
     // Mock calculation - simular delay da API
     setTimeout(() => {
-      // Mock equity baseado no tipo do player
+      // Mock equity baseado no tipo do player e board
       let heroEquity = 50
       
-      if (selectedPlayer.type === 'Nit') {
-        heroEquity = Math.random() * 30 + 25 // 25-55%
-      } else if (selectedPlayer.type === 'Fish') {
-        heroEquity = Math.random() * 30 + 55 // 55-85%
+      // Ajustar equity baseado no board
+      const boardSize = boardCards.length
+      if (boardSize >= 3) {
+        // Com flop, equity fica mais definida
+        if (selectedPlayer.type === 'Nit') {
+          heroEquity = Math.random() * 35 + 20 // 20-55%
+        } else if (selectedPlayer.type === 'Fish') {
+          heroEquity = Math.random() * 35 + 50 // 50-85%
+        } else {
+          heroEquity = Math.random() * 50 + 30 // 30-80%
+        }
       } else {
-        heroEquity = Math.random() * 40 + 40 // 40-80%
+        // Pré-flop equity
+        if (selectedPlayer.type === 'Nit') {
+          heroEquity = Math.random() * 30 + 25 // 25-55%
+        } else if (selectedPlayer.type === 'Fish') {
+          heroEquity = Math.random() * 30 + 55 // 55-85%
+        } else {
+          heroEquity = Math.random() * 40 + 40 // 40-80%
+        }
       }
       
       setEquity({
@@ -82,6 +115,14 @@ export default function Home() {
       })
       setIsAnalyzing(false)
     }, 1500)
+  }
+
+  const getBoardStage = () => {
+    if (boardCards.length === 0) return 'Pré-flop'
+    if (boardCards.length === 3) return 'Flop'
+    if (boardCards.length === 4) return 'Turn'
+    if (boardCards.length === 5) return 'River'
+    return `Board (${boardCards.length}/5)`
   }
 
   return (
@@ -115,7 +156,7 @@ export default function Home() {
             {/* Minhas Cartas */}
             <div className="mb-4">
               <label className="text-gray-300 text-sm block mb-2">Minha Mão - Clique para selecionar:</label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 {[0, 1].map((index) => (
                   <div key={index} className="relative">
                     {selectedCards[index] ? (
@@ -128,7 +169,7 @@ export default function Home() {
                     ) : (
                       <CardSelector 
                         onCardSelect={handleCardSelect}
-                        selectedCards={selectedCards}
+                        selectedCards={usedCards}
                       />
                     )}
                   </div>
@@ -141,6 +182,58 @@ export default function Home() {
                     Limpar
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Board Cards */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-gray-300 text-sm">
+                  Board ({getBoardStage()}):
+                </label>
+                {boardCards.length > 0 && (
+                  <button
+                    onClick={clearBoard}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                  >
+                    Limpar Board
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex gap-2 items-center">
+                {[0, 1, 2, 3, 4].map((index) => (
+                  <div key={index} className="relative">
+                    {boardCards[index] ? (
+                      <div className={`
+                        w-10 h-14 bg-white border border-gray-400 rounded flex items-center justify-center font-bold text-xs
+                        ${boardCards[index].suit === '♥' || boardCards[index].suit === '♦' ? 'text-red-600' : 'text-black'}
+                        ${index === 2 ? 'mr-2' : ''}
+                        ${index === 3 ? 'mr-2' : ''}
+                      `}>
+                        {boardCards[index].display}
+                      </div>
+                    ) : (
+                      <div className={`
+                        ${index === 2 ? 'mr-2' : ''}
+                        ${index === 3 ? 'mr-2' : ''}
+                      `}>
+                        <CardSelector 
+                          onCardSelect={handleBoardCardSelect}
+                          selectedCards={usedCards}
+                          isBoard={true}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {/* Labels das streets */}
+                <div className="ml-4 text-xs text-gray-400">
+                  <div>Flop: 3 cartas</div>
+                  <div>Turn: 4ª carta</div>
+                  <div>River: 5ª carta</div>
+                </div>
               </div>
             </div>
 
@@ -158,26 +251,42 @@ export default function Home() {
               />
             </div>
 
-            {/* Botão Calcular */}
-            <button
-              onClick={calculateEquity}
-              disabled={selectedCards.length !== 2 || !selectedPlayer || isAnalyzing}
-              className={`
-                w-full py-3 rounded font-medium
-                ${selectedCards.length === 2 && selectedPlayer && !isAnalyzing
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                }
-              `}
-            >
-              {isAnalyzing ? 'Calculando...' : 'Calcular Equity + IA'}
-            </button>
+            {/* Botões de Ação */}
+            <div className="flex gap-3">
+              <button
+                onClick={calculateEquity}
+                disabled={selectedCards.length !== 2 || !selectedPlayer || isAnalyzing}
+                className={`
+                  flex-1 py-3 rounded font-medium
+                  ${selectedCards.length === 2 && selectedPlayer && !isAnalyzing
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }
+                `}
+              >
+                {isAnalyzing ? 'Calculando...' : 'Calcular Equity + IA'}
+              </button>
+              
+              {(selectedCards.length > 0 || boardCards.length > 0) && (
+                <button
+                  onClick={clearAllCards}
+                  className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded font-medium"
+                >
+                  🗑️ Limpar Tudo
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Equity Display */}
           {equity && (
             <div className="bg-slate-800 rounded-lg p-6">
-              <h3 className="text-white text-lg font-semibold mb-4">📊 Equity Calculator</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white text-lg font-semibold">📊 Equity Calculator</h3>
+                <div className="text-gray-400 text-sm">
+                  {getBoardStage()} • vs {selectedPlayer?.name}
+                </div>
+              </div>
               
               <div className="flex justify-between mb-4">
                 <div className="text-center">
@@ -198,6 +307,26 @@ export default function Home() {
                   {equity.hero > 30 && `${equity.hero}%`}
                 </div>
               </div>
+              
+              {/* Board Display */}
+              {boardCards.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-600">
+                  <div className="text-gray-400 text-sm mb-2">Board atual:</div>
+                  <div className="flex gap-1">
+                    {boardCards.map((card, index) => (
+                      <span 
+                        key={index}
+                        className={`
+                          px-2 py-1 text-xs font-bold rounded
+                          ${card.suit === '♥' || card.suit === '♦' ? 'bg-red-900 text-red-200' : 'bg-gray-900 text-gray-200'}
+                        `}
+                      >
+                        {card.display}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
