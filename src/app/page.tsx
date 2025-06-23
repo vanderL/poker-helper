@@ -1,26 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { Card, Player, HandResult, OpponentAction } from '@/types/shared'
 import CardSelector from './components/CardSelector'
 import PlayerSidebar from './components/PlayerSidebar'
 import AICoach from './components/AICoach'
-
-interface Card {
-  rank: string
-  suit: string
-  display: string
-}
-
-interface Player {
-  id: number
-  name: string
-  nickname?: string
-  type?: string
-  notes?: string
-}
-
-type HandResult = 'won' | 'lost' | 'chopped'
-type OpponentAction = 'fold' | 'call' | 'raise' | 'all-in'
 
 export default function Home() {
   const [selectedCards, setSelectedCards] = useState<Card[]>([])
@@ -677,7 +661,16 @@ export default function Home() {
 
         {/* AI Coach */}
         <div className="lg:col-span-1 bg-slate-800">
-          <AICoach isAnalyzing={isAnalyzing} />
+          <AICoach 
+            isAnalyzing={isAnalyzing}
+            selectedPlayer={selectedPlayer}
+            heroCards={selectedCards}
+            villainRange={villainRange}
+            boardCards={boardCards}
+            potSize={potSize}
+            position="Button"
+            action={opponentAction || undefined}
+          />
         </div>
       </div>
     </div>

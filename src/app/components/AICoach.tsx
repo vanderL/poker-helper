@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Player, Card, AnalysisResponse } from '@/types/shared'
 
 interface AIMessage {
   id: number
@@ -22,24 +23,10 @@ interface AIMessage {
   }
 }
 
-interface Player {
-  id: number
-  name: string
-  type?: 'TAG' | 'LAG' | 'Fish' | 'Nit'
-  notes?: string
-  initialNotes?: string
-}
-
-interface Card {
-  rank: string
-  suit: string
-  display: string
-}
-
 interface AICoachProps {
   isAnalyzing?: boolean
-  selectedPlayer?: Player
-  heroCards?: Card[]
+  selectedPlayer?: Player  // ✅ Usando tipo importado
+  heroCards?: Card[]       // ✅ Usando tipo importado
   villainRange?: string
   boardCards?: Card[]
   position?: string
@@ -91,6 +78,60 @@ export default function AICoach({
     return cards.map(c => c.display).join('')
   }
 
+  // Construir conteúdo da análise
+  const buildAnalysisContent = (analysis: AnalysisResponse): string => {
+    let content = `🤖 Análise: ${analysis.recommendation?.action || 'FOLD'} vs ${selectedPlayer?.name}\n\n`
+    
+    if (analysis.education?.concept) {
+      content += `💡 Conceito: ${analysis.education.concept}\n\n`
+    }
+    
+    if (analysis.recommendation?.reasoning) {
+      content += `${analysis.recommendation.reasoning}\n\n`
+    }
+    
+    if (analysis.education?.explanation) {
+      content += `📚 Explicação: ${analysis.education.explanation}\n\n`
+    }
+    
+    if (analysis.education?.practicalRule) {
+      content += `⚡ Regra Prática: ${analysis.education.practicalRule}\n\n`
+    }
+    
+    if (analysis.playerAnalysis?.pattern) {
+      content += `📊 Análise do ${selectedPlayer?.name}:\n`
+      content += `• Padrão: ${analysis.playerAnalysis.pattern}\n`
+      if (analysis.playerAnalysis.exploit) {
+        content += `• Exploit: ${analysis.playerAnalysis.exploit}\n`
+      }
+      if (analysis.playerAnalysis.confidence) {
+        content += `• Confiança: ${analysis.playerAnalysis.confidence}\n`
+      }
+    }
+    
+    if (analysis.education?.commonMistake) {
+      content += `\n❌ Erro Comum: ${analysis.education.commonMistake}`
+    }
+    
+    return content
+  }
+
+  // Análise fallback
+  const createFallbackAnalysis = (): AIMessage => {
+    const isStrongHand = ['AA', 'KK', 'QQ', 'AK'].some(hand => 
+      formatCards(heroCards).startsWith(hand.substring(0, 2))
+    )
+
+    return {
+      id: Date.now(),
+      type: 'analysis',
+      content: `🤖 Análise Básica vs ${selectedPlayer?.name}\n\n💡 Conceito: Hand Strength Analysis\n\n${isStrongHand ? 'Mão premium detectada. Geralmente merece ação agressiva.' : 'Mão não-premium. Avalie cuidadosamente vs range do oponente.'}\n\n📚 Regra Prática: ${selectedPlayer?.type === 'TAG' ? 'Vs jogador tight, seja mais seletivo' : 'Vs jogador loose, value bet mais thin'}\n\n📊 Análise do ${selectedPlayer?.name}:\n• Tipo: ${selectedPlayer?.type || 'Unknown'}\n• Exploit: ${selectedPlayer?.type === 'Fish' ? 'Value bet mais frequentemente' : 'Respeite aggression dele'}`,
+      timestamp: new Date(),
+      confidence: 60,
+      action: isStrongHand ? 'RAISE' : 'FOLD'
+    }
+  }
+
   // Análise real via API
   const analyzeWithAPI = async () => {
     if (!selectedPlayer || heroCards.length !== 2) {
@@ -121,7 +162,7 @@ export default function AICoach({
         villainRange: villainRange || 'QQ+, AKs, AKo',
         playerProfile: {
           name: selectedPlayer.name,
-          type: selectedPlayer.type || 'TAG',
+          type: selectedPlayer.type || 'TAG', // ✅ Sem cast desnecessário
           notes: selectedPlayer.notes || selectedPlayer.initialNotes
         },
         position: position || 'Button',
@@ -187,81 +228,6 @@ export default function AICoach({
 
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Interface para resposta da API
-  interface AnalysisAPIResponse {
-    recommendation?: {
-      action: 'FOLD' | 'CALL' | 'RAISE' | 'ALL-IN'
-      confidence: number
-      reasoning: string
-    }
-    education?: {
-      concept: string
-      explanation: string
-      practicalRule: string
-      commonMistake: string
-    }
-    playerAnalysis?: {
-      pattern: string
-      exploit: string
-      confidence: string
-    }
-    timestamp: string
-  }
-
-  // Construir conteúdo da análise
-  const buildAnalysisContent = (analysis: AnalysisAPIResponse): string => {
-    let content = `🤖 Análise: ${analysis.recommendation?.action || 'FOLD'} vs ${selectedPlayer?.name}\n\n`
-    
-    if (analysis.education?.concept) {
-      content += `💡 Conceito: ${analysis.education.concept}\n\n`
-    }
-    
-    if (analysis.recommendation?.reasoning) {
-      content += `${analysis.recommendation.reasoning}\n\n`
-    }
-    
-    if (analysis.education?.explanation) {
-      content += `📚 Explicação: ${analysis.education.explanation}\n\n`
-    }
-    
-    if (analysis.education?.practicalRule) {
-      content += `⚡ Regra Prática: ${analysis.education.practicalRule}\n\n`
-    }
-    
-    if (analysis.playerAnalysis?.pattern) {
-      content += `📊 Análise do ${selectedPlayer?.name}:\n`
-      content += `• Padrão: ${analysis.playerAnalysis.pattern}\n`
-      if (analysis.playerAnalysis.exploit) {
-        content += `• Exploit: ${analysis.playerAnalysis.exploit}\n`
-      }
-      if (analysis.playerAnalysis.confidence) {
-        content += `• Confiança: ${analysis.playerAnalysis.confidence}\n`
-      }
-    }
-    
-    if (analysis.education?.commonMistake) {
-      content += `\n❌ Erro Comum: ${analysis.education.commonMistake}`
-    }
-    
-    return content
-  }
-
-  // Análise fallback
-  const createFallbackAnalysis = (): AIMessage => {
-    const isStrongHand = ['AA', 'KK', 'QQ', 'AK'].some(hand => 
-      formatCards(heroCards).startsWith(hand.substring(0, 2))
-    )
-
-    return {
-      id: Date.now(),
-      type: 'analysis',
-      content: `🤖 Análise Básica vs ${selectedPlayer?.name}\n\n💡 Conceito: Hand Strength Analysis\n\n${isStrongHand ? 'Mão premium detectada. Geralmente merece ação agressiva.' : 'Mão não-premium. Avalie cuidadosamente vs range do oponente.'}\n\n📚 Regra Prática: ${selectedPlayer?.type === 'TAG' ? 'Vs jogador tight, seja mais seletivo' : 'Vs jogador loose, value bet mais thin'}\n\n📊 Análise do ${selectedPlayer?.name}:\n• Tipo: ${selectedPlayer?.type || 'Unknown'}\n• Exploit: ${selectedPlayer?.type === 'Fish' ? 'Value bet mais frequentemente' : 'Respeite aggression dele'}`,
-      timestamp: new Date(),
-      confidence: 60,
-      action: isStrongHand ? 'RAISE' : 'FOLD'
     }
   }
 
