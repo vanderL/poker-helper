@@ -1,16 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Player, PlayerType } from '@/types/shared'
 import AddPlayerModal from './AddPlayerModal'
-
-interface Player {
-  id: number
-  name: string
-  nickname?: string
-  type?: string
-  notes?: string
-  initialNotes?: string
-}
 
 interface PlayerSidebarProps {
   onPlayerSelect: (player: Player) => void
@@ -41,6 +33,7 @@ export default function PlayerSidebar({ onPlayerSelect, selectedPlayer }: Player
         name: player.name,
         nickname: player.nickname,
         notes: player.initialNotes,
+        initialNotes: player.initialNotes,
         type: inferPlayerType(player) // Inferir tipo dos patterns ou default
       }))
       
@@ -55,7 +48,7 @@ export default function PlayerSidebar({ onPlayerSelect, selectedPlayer }: Player
   }
 
   // Inferir tipo do player (temporário até implementar patterns)
-  const inferPlayerType = (player: Player): string => {
+  const inferPlayerType = (player: Player): PlayerType => {
     // Por enquanto, usar TAG como default
     // Depois vamos implementar inferência real dos patterns
     if (player.initialNotes?.toLowerCase().includes('tight')) return 'TAG'
@@ -93,14 +86,20 @@ export default function PlayerSidebar({ onPlayerSelect, selectedPlayer }: Player
       
       // Se era o player selecionado, limpar seleção
       if (selectedPlayer?.id === playerId) {
-        onPlayerSelect({} as Player)
+        // Criar player vazio com tipo correto
+        const emptyPlayer: Player = {
+          id: 0,
+          name: '',
+          type: 'TAG'
+        }
+        onPlayerSelect(emptyPlayer)
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao remover jogador')
     }
   }
 
-  const getTypeColor = (type?: string) => {
+  const getTypeColor = (type?: PlayerType) => {
     switch (type) {
       case 'TAG': return 'bg-green-600'
       case 'LAG': return 'bg-orange-600'
